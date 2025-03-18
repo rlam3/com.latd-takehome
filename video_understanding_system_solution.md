@@ -4,76 +4,55 @@
 
 - [1. Introduction](#1-introduction)
 - [2. High-Level System Design](#2-high-level-system-design)
-  - [2.1 Architecture Overview](#21-architecture-overview)
-  - [2.2 Technology Choices](#22-technology-choices)
-  - [2.3 RAG-Specific Processing Pipeline](#23-rag-specific-processing-pipeline)
 - [3. Addressing Specific Technical Challenges](#3-addressing-specific-technical-challenges)
-  - [3.1 Accurate Time-Stamping](#31-accurate-time-stamping)
-  - [3.2 Multi-Genre/Content Type Support](#32-multi-genrecontent-type-support)
-  - [3.3 Variable Video Length Handling](#33-variable-video-length-handling)
-  - [3.4 Contextual Summarization](#34-contextual-summarization)
-  - [3.5 Multi-Modal Search Capabilities](#35-multi-modal-search-capabilities)
-  - [3.6 Scalability, Performance & Cost Considerations](#36-scalability-performance--cost-considerations)
-  - [3.7 Scene Graph-Based Visual Reasoning](#37-scene-graph-based-visual-reasoning)
 - [4. Limitations & Creative Workarounds](#4-limitations--creative-workarounds)
-  - [4.1 Current Limitations in Video Understanding](#41-current-limitations-in-video-understanding)
-  - [4.2 Creative Workarounds](#42-creative-workarounds)
-  - [4.3 Dynamic Retrieval: Key Advantage Over Direct Models](#43-dynamic-retrieval-key-advantage-over-direct-models)
 - [5. Evaluation Framework](#5-evaluation-framework)
-  - [5.1 Key Metrics](#51-key-metrics)
-  - [5.2 Testing Methodology](#52-testing-methodology)
-  - [5.3 Quality Assurance](#53-quality-assurance)
 - [6. AI Tool Usage Throughout Development](#6-ai-tool-usage-throughout-development)
 - [7. Conclusion](#7-conclusion)
 - [8. References](#8-references)
 
+## Key Terminology
+
+Before diving into the technical details, here are definitions for some of the key terms and acronyms used throughout this document:
+
+| Term | Definition |
+|------|------------|
+| **RAG** | **Retrieval Augmented Generation** - An AI framework that enhances large language models by retrieving relevant context from external knowledge sources before generating responses |
+| **ASR** | **Automatic Speech Recognition** - Technology that converts spoken language into written text from video audio tracks |
+| **OCR** | **Optical Character Recognition** - Technology that extracts text from visual elements (e.g., subtitles, signs, text on screen) in video frames |
+| **DET** | **Object Detection** - Computer vision technology that identifies and locates objects within video frames using bounding boxes |
+| **VLM** | **Vision-Language Model** - AI model capable of understanding and processing both visual data and natural language |
+| **Scene Graph** | A structured representation of a visual scene as a graph, where nodes represent objects and edges represent relationships between objects |
+| **CLIP** | **Contrastive Language-Image Pre-training** - A neural network trained on image-text pairs to associate images with their semantic textual descriptions |
+| **FAISS** | **Facebook AI Similarity Search** - A library for efficient similarity search and clustering of dense vectors |
+
 ## 1. Introduction
 
-This document presents a design for a video understanding system using a Video RAG (Retrieval Augmented Generation) architecture. This approach addresses the challenges of analyzing video content by chunking videos into retrievable segments, creating multimodal embeddings, and using a retrieval system to provide relevant context to generative AI models for understanding and analysis tasks.
+This document presents a design for a video understanding system using a [Video RAG (Retrieval Augmented Generation)](https://github.com/Leon1207/Video-RAG-master) architecture. This approach addresses the challenges of analyzing video content by chunking videos into retrievable segments, creating multimodal embeddings, and using a retrieval system to provide relevant context to generative AI models for understanding and analysis tasks.
 
 For more information about the research and decision-making process behind this system design, please see the [approach document](approach.md).
+
+![](VideoRAG.png)
 
 ## 2. High-Level System Design
 
 ### 2.1 Architecture Overview
 
-The proposed Video RAG system follows a retrieval-first architecture that emphasizes efficient indexing and retrieval of video segments:
+The Video RAG system follows a dual-pipeline architecture that separates content processing from query handling. Our implementation introduces key optimizations over standard RAG approaches:
 
-```mermaid
-graph TD
-    A[Video Input] --> B[Video Processing & Chunking]
-    B --> C[Multimodal Feature Extraction]
-    C --> D[Embedding Generation]
-    D --> E[Vector Database Storage]
-    
-    F[User Query/Task] --> G[Query Processing]
-    G --> H[Retrieval Engine]
-    E --> H
-    H --> I[Context Assembly]
-    I --> J[LLM Reasoning Engine]
-    J --> K[Response Generation]
-    
-    subgraph "Video Indexing Pipeline"
-    A
-    B
-    C
-    D
-    E
-    end
-    
-    subgraph "Retrieval & Generation Pipeline"
-    F
-    G
-    H
-    I
-    J
-    K
-    end
-```
+1. **Query-Guided Processing**: Rather than blindly processing all video content, the system first analyzes the query to determine which information modalities (visual, audio, text) are needed.
+
+2. **Dynamic Frame Selection**: Using CLIP embeddings, the system selectively processes only the frames most relevant to the query, significantly reducing computation.
+
+3. **Threshold-Based Retrieval**: Instead of retrieving a fixed number of results, the system uses semantic similarity thresholds to retrieve only truly relevant information.
+
+4. **In-Memory Vector Search**: For efficiency, the implementation uses FAISS for on-the-fly vector similarity rather than a persistent database.
+
+These optimizations allow the system to handle longer videos with greater efficiency than standard end-to-end approaches, while maintaining precise temporal understanding through careful context assembly.
 
 ### 2.1.1 Implementation Notes: Conceptual Architecture vs. Code
 
-While the architecture diagram provides a conceptual overview, our Video-RAG implementation employs several pragmatic optimizations:
+While the conceptual architecture separates indexing from retrieval, our Video-RAG implementation employs several pragmatic optimizations:
 
 1. **Query-First Approach**: Rather than processing all modalities, our implementation (in `vidrag_pipeline.py`) first analyzes the query to determine which information types are needed:
 
@@ -124,12 +103,9 @@ These optimizations significantly improve efficiency while maintaining the core 
      - Frame sampling and key frame extraction
      - Object and scene detection via pre-trained models
      - Face detection and clustering
-     - Visual aesthetic features (composition, lighting)
      - **Scene graph generation for spatial relationship understanding**
    - Audio features:
      - Speech recognition with timestamps (Whisper model)
-     - Speaker diarization
-     - Non-speech audio event detection
      - Audio characteristics (volume, tempo, mood)
    - Text features:
      - Transcript processing
@@ -197,7 +173,6 @@ These optimizations significantly improve efficiency while maintaining the core 
 
 8. **LLM Reasoning Engine**
    - Prompt engineering:
-     - Task-specific prompt templates
      - Few-shot examples for complex tasks
      - System messages for role definition
    - Context handling:
@@ -207,7 +182,6 @@ These optimizations significantly improve efficiency while maintaining the core 
    - Reasoning strategies:
      - Chain-of-thought reasoning for complex analysis
      - Multiple perspective analysis
-     - Uncertainty representation
 
 9. **Response Generation**
    - Output formatting:
@@ -240,15 +214,6 @@ These optimizations significantly improve efficiency while maintaining the core 
 | Service Architecture | Socket-based microservices | Decoupled inference services (e.g., APE) communicate via socket connections for scalability |
 | Multimodal Reasoning | Query-guided selective processing | Dynamic selection of which modalities to process based on query requirements |
 | Retrieval Strategy | Visually-aligned selective processing | Uses CLIP for targeted frame selection to process only the most relevant frames |
-
-The implementation specifically favors open-source components throughout the pipeline:
-
-1. **Core Video Understanding**: LLaVA-Video (open-source alternative to proprietary video models)
-2. **Text Embeddings**: Contriever (open-source alternative to proprietary embedding models)
-3. **Speech Recognition**: Whisper (open-source ASR with competitive performance)
-4. **Object Detection**: APE with Detectron2 (open-source detection framework)
-5. **Vector Search**: FAISS (industry-standard open-source similarity search)
-6. **OCR**: EasyOCR (open-source text extraction)
 
 This open-source foundation ensures the system remains vendor-independent while still achieving state-of-the-art performance through targeted retrieval and careful integration.
 
@@ -298,7 +263,7 @@ This open-source foundation ensures the system remains vendor-independent while 
      - Hierarchical structure (sub-chunks to chunks to sequences)
 
 4. **Indexing Phase**
-   - Vector database insertion with metadata:
+   - Vector store insertion with metadata:
      - Embeddings with chunk identifiers
      - Rich metadata for filtering (time ranges, speakers, entities)
      - Cross-reference information between related chunks

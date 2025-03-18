@@ -36,6 +36,30 @@ This analysis revealed notable trade-offs between:
 - Real-time capabilities vs. depth of understanding
 - Open-source vs. proprietary model dependencies
 
+## Initial Constraints & Challenges
+
+When approaching this video understanding system design, several key constraints were identified that shaped the eventual solution:
+
+### Technical Constraints
+
+- **Video Length Limitations**: Current multimodal models struggle with videos longer than ~30 minutes
+- **Token Window Restrictions**: LLM context windows (even with 100K+ tokens) can't fully represent hour+ long videos
+- **Computational Resources**: Processing full-resolution videos at scale requires significant GPU resources
+- **Real-time Requirements**: Many use cases require responses within seconds, not minutes
+- **Cross-Modal Integration**: Aligning information from visual, audio, and text modalities remains challenging
+
+### Data Constraints
+
+- **Domain Variability**: Videos across different domains (entertainment, education, sports) have vastly different characteristics
+- **Quality Variations**: Content varies from professional productions to user-generated material with different quality levels
+- **Multimodal Information Density**: Some videos are visually dense but dialogue-sparse, others the opposite
+
+### Practical Implementation Barriers
+
+- **API Limitations**: Commercial APIs often have rate limits, size restrictions, and pricing concerns
+- **Dependency Management**: Balancing open-source flexibility against enterprise reliability requirements
+- **Evaluation Challenges**: No single benchmark covers all aspects of video understanding
+
 ### Decision Framework
 
 Based on my research and benchmark analysis, I developed a decision framework focusing on these key criteria:
@@ -68,6 +92,62 @@ Based on my research and benchmark analysis, I developed a decision framework fo
      - Video quantity restrictions (e.g., max 10 videos per prompt)
      - Modality integration challenges
    - Architecture designed to overcome these limitations through chunking and retrieval
+
+## Descoping Decisions & Rationale
+
+Given the identified constraints, several strategic descoping decisions were made:
+
+### Modality-Specific Descoping
+
+#### Vision Processing
+
+- **DESCOPED**: Custom model training for domain-specific visual understanding
+  - **Rationale**: Focused on leveraging existing pre-trained models (CLIP, APE) rather than investing in custom training
+  - **Alternative**: Used zero-shot capabilities of existing models with dynamic frame selection
+
+- **DESCOPED**: Frame-by-frame dense optical flow tracking
+  - **Rationale**: Extremely computationally expensive for minimal gain in most use cases
+  - **Alternative**: Selective key frame processing with spatial relationship modeling through scene graphs
+
+#### Audio Processing
+
+- **DESCOPED**: Custom audio event detection models
+  - **Rationale**: Would require specialized training datasets and expertise
+  - **Alternative**: Focused on speech recognition (Whisper) as it delivers the highest information value
+
+- **DESCOPED**: Music and sound effect analysis
+  - **Rationale**: Less crucial for general understanding compared to speech and visuals
+  - **Alternative**: Basic audio characteristic extraction where directly relevant to queries
+
+#### Text Processing
+
+- **DESCOPED**: Full natural language parsing of transcripts
+  - **Rationale**: Modern embeddings capture semantic meaning effectively without explicit parsing
+  - **Alternative**: Direct embedding of transcribed text with temporal alignment
+
+### Architecture Descoping
+
+- **DESCOPED**: Persistent vector database infrastructure
+  - **Rationale**: Adds deployment complexity without demonstrating core functionality
+  - **Alternative**: In-memory FAISS for efficient retrieval with similar capabilities
+
+- **DESCOPED**: Custom embedding model training
+  - **Rationale**: Existing embedding models provide strong zero-shot capabilities
+  - **Alternative**: Using pre-trained models with query-specific weightings
+
+- **DESCOPED**: Distributed processing framework
+  - **Rationale**: Beyond scope of proof-of-concept design
+  - **Alternative**: Conceptual pipeline design that could be implemented with various distributed systems
+
+### Feature Descoping
+
+- **DESCOPED**: Real-time streaming video processing
+  - **Rationale**: Added complexity without demonstrating core RAG capabilities
+  - **Alternative**: Batch processing with ingestion pipeline that could be adapted to streaming
+
+- **DESCOPED**: Custom UI/UX for video exploration
+  - **Rationale**: Focus on core technical architecture rather than presentation layer
+  - **Alternative**: Standard API design that could support various frontend implementations
 
 ## Design Philosophy
 
@@ -123,6 +203,28 @@ Several significant trade-offs were considered when developing this approach:
    - Implemented chunking strategies to overcome the video length limitations of current models
    - Designed for progressive processing rather than whole-video analysis
    - Retrieval system bridges context across independently processed segments
+
+## Focus Areas & Prioritization
+
+With constraints identified and descoping decisions made, the solution focused on:
+
+### Core RAG Pipeline
+
+- **Query-First Processing**: Analyzing what information is needed before extracting it
+- **Selective Feature Extraction**: Processing only the most relevant frames and modalities
+- **Dynamic Threshold-Based Retrieval**: Adapting to query complexity rather than fixed retrieval counts
+
+### Scene Graph Generation
+
+- Prioritized development of scene graph capabilities to address spatial understanding challenges
+- Implemented NetworkX-based solution for object relationship modeling
+- Created natural language description generation for scene composition
+
+### Modality Integration
+
+- Designed multi-modal context assembly to bring together information from different sources
+- Implemented query-specific weighting of modalities based on information needs
+- Created a unified context document format for LLM reasoning
 
 ## Implementation Strategy
 
